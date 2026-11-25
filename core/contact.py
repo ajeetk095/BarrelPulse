@@ -32,8 +32,12 @@ def clean_line(s: str) -> str:
 
 
 def validate(name: str, email: str, subject: str, message: str) -> dict:
-    d = {"name": clean_line(name), "email": clean_line(email), "subject": clean_line(subject),
-         "message": (message or "").replace("\x00", "").strip()}
+    d = {
+        "name": clean_line(name),
+        "email": clean_line(email),
+        "subject": clean_line(subject),
+        "message": (message or "").replace("\x00", "").strip(),
+    }
     if not d["name"]:
         raise ContactError("Please enter your name.")
     if not EMAIL_RE.match(d["email"]):
@@ -48,8 +52,15 @@ def validate(name: str, email: str, subject: str, message: str) -> dict:
     return d
 
 
+def _credentials() -> tuple[str, str]:
+    user = (get_secret("GMAIL_USER") or "").strip()
+    pwd = (get_secret("GMAIL_APP_PASSWORD") or "").replace(" ", "").strip()
+    return user, pwd
+
+
 def configured() -> bool:
-    return bool(get_secret("GMAIL_USER") and get_secret("GMAIL_APP_PASSWORD"))
+    user, pwd = _credentials()
+    return bool(user and pwd)
 
 
 def build_message(d: dict, sender: str, to: str) -> EmailMessage:
@@ -58,26 +69,41 @@ def build_message(d: dict, sender: str, to: str) -> EmailMessage:
     m["To"] = to
     m["Reply-To"] = formataddr((d["name"], d["email"]))
     m["Subject"] = f"[BarrelPulse] {d['subject']}"
-    m.set_content(f"From: {d['name']} <{d['email']}>\n\n{d['message']}\n\n— sent via the BarrelPulse app contact form")
+    m.set_content(
+        f"From: {d['name']} <{d['email']}>\n\n{d['message']}\n\n— sent via the BarrelPulse app contact form"
+    )
     return m
 
 
-def send_message(name: str, email: str, subject: str, message: str,
-                 smtp_factory: Optional[Callable] = None) -> None:
+def send_message(
+    name: str,
+    email: str,
+    subject: str,
+    message: str,
+    smtp_factory: Optional[Callable] = None,
+) -> None:
     """Validate and send. Raises :class:`ContactError` on any problem (never returns success silently)."""
     d = validate(name, email, subject, message)
-    user, pwd = get_secret("GMAIL_USER"), get_secret("GMAIL_APP_PASSWORD")
+    user, pwd = _credentials()
     if not (user and pwd):
-        raise ContactError("The mail service is not configured on this deployment yet "
-                           "(GMAIL_USER / GMAIL_APP_PASSWORD secrets missing). Please use the email or LinkedIn buttons instead.")
-    to = get_secret("CONTACT_TO") or G.DEVELOPER["email"]
+        raise ContactError(
+            "The mail service is not configured on this deployment yet "
+            "(GMAIL_USER / GMAIL_APP_PASSWORD secrets missing). Please use the email or LinkedIn buttons instead."
+        )
+    to = (get_secret("CONTACT_TO") or G.DEVELOPER["email"]).strip()
     msg = build_message(d, user, to)
     try:
-        factory = smtp_factory or (lambda: smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20, context=ssl.create_default_context()))
+        factory = smtp_factory or (
+            lambda: smtplib.SMTP_SSL(
+                "smtp.gmail.com", 465, timeout=20, context=ssl.create_default_context()
+            )
+        )
         with factory() as s:
             s.login(user, pwd)
             s.send_message(msg)
     except smtplib.SMTPAuthenticationError as exc:
         raise ContactError("Gmail rejected the sign-in (check the app password).") from exc
     except (smtplib.SMTPException, OSError) as exc:
-        raise ContactError("The message could not be delivered right now. Please try again later or use the email button.") from exc
+        raise ContactError(
+            "The message could not be delivered right now. Please try again later or use the email button."
+        ) from exc
