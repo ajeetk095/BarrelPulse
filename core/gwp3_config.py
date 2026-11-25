@@ -20,7 +20,7 @@ from dataclasses import dataclass
 DEVELOPER = {
     "name": "Ajeet Kumar",
     "headline": "Bridging code & capital.",
-    "intro": ("Quantitative finance specialist with an M.Sc. in Financial Engineering and a "
+    "intro": ("Quantitative finance specialist with an M.Sc. in Financial Engineering, M.Tech. in Computer Science & Engineering and a "
               "B.Tech in IT. I turn complex data into alpha using Python, C++, SQL, and ML — "
               "from Markowitz MVO and Black-Litterman to Monte Carlo and deep learning."),
     "achievements": [
