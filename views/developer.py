@@ -17,6 +17,7 @@ with a:
 with b:
     st.subheader("Objective")
     st.info(d["objective"])
+
 mail = f"mailto:{d['email']}?subject=BarrelPulse%20%E2%80%94%20Hello"
 c = st.columns(5)
 c[0].link_button("Hire Me", mail + "%20(Hire)", width="stretch")
@@ -27,7 +28,6 @@ c[4].link_button("Send an Email", mail, width="stretch")
 
 st.markdown("<a id='send-a-message'></a>", unsafe_allow_html=True)
 st.subheader("Send a message")
-st.caption("Your message is delivered straight to the developer's inbox from this page — no mail app opens.")
 
 
 @st.dialog("Message sent")
@@ -39,24 +39,28 @@ def _thanks():
 
 FIELDS = ("name", "email", "subject", "message")
 
-
 for f in FIELDS:
     st.session_state.setdefault(f"contact.{f}", "")
 if st.session_state.pop("contact.sent", False):
-    for f in FIELDS:                      # clear BEFORE the widgets are created
+    for f in FIELDS:  # clear BEFORE the widgets are created
         st.session_state[f"contact.{f}"] = ""
     _thanks()
 
-if not contact.configured():
-    st.warning("The in-page mail service is not configured on this deployment (the owner must add Gmail secrets). "
-               "You can still use the Email or LinkedIn buttons above.")
+is_mail_ready = contact.configured()
+if not is_mail_ready:
+    st.warning(
+        "The in-page mail service is not configured on this deployment (the owner must add Gmail secrets). "
+        "You can still use the Email or LinkedIn buttons above."
+    )
+
 with st.form("contact_form", clear_on_submit=False):
     n, e = st.columns(2)
     n.text_input("Your name", max_chars=contact.MAX["name"], key="contact.name")
     e.text_input("Your email", max_chars=contact.MAX["email"], key="contact.email")
     st.text_input("Subject", max_chars=contact.MAX["subject"], key="contact.subject")
     st.text_area("Message", height=160, max_chars=contact.MAX["message"], key="contact.message")
-    send = st.form_submit_button("Send message", type="primary")
+    send = st.form_submit_button("Send message", type="primary", disabled=not is_mail_ready)
+
 if send:
     now = time.time()
     last = st.session_state.get("contact.last", 0.0)
@@ -74,5 +78,6 @@ if send:
             st.session_state["contact.last"], st.session_state["contact.count"] = now, count + 1
             st.session_state["contact.sent"] = True
             st.rerun()
+
 st.caption(f"Direct: {d['email']} · [GitHub]({d['github']}) · [LinkedIn]({d['linkedin']})")
 ui.disclaimer()
